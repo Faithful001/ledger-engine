@@ -1,0 +1,56 @@
+package com.king.ledgerengine.domain.account;
+
+import com.king.ledgerengine.domain.account.dto.CreateAccountDto;
+import com.king.ledgerengine.domain.account.entity.Account;
+import com.king.ledgerengine.domain.entry.EntryRepository;
+import com.king.ledgerengine.domain.entry.entity.Entry;
+import com.king.ledgerengine.domain.user.UserRepository;
+import com.king.ledgerengine.domain.user.entity.User;
+import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import java.math.BigDecimal;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class AccountService {
+    private final AccountRepository accountRepository;
+    private final EntryRepository entryRepository;
+    private final UserRepository userRepository;
+
+    // POST
+    public Account create(@NonNull CreateAccountDto payload, String userId){
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        Account account = Account.builder()
+                .name(payload.getName())
+                .type(payload.getType())
+                .user(user)
+                .build();
+
+        return accountRepository.save(account);
+    }
+
+    // GET
+    public BigDecimal getBalance(String accountId, String userId) {
+        assertOwnership(accountId, userId);
+        return entryRepository.getBalance(accountId);
+    }
+
+    // GET
+    public List<Entry> getEntries(String accountId, String userId) {
+        assertOwnership(accountId, userId);
+        return entryRepository.findByAccountId(accountId);
+    }
+
+    // helper
+    private void assertOwnership(String accountId, String userId){
+        accountRepository.findByIdAndUserId(accountId, userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Account not found or does not belong to this user"));
+    }
+}
