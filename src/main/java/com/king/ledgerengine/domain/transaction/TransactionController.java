@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,18 +22,21 @@ public class TransactionController {
     @Operation(summary = "Create a new transaction", description = "Creates a balanced transaction with debit/credit entries. Requires an Idempotency-Key header.")
     @ApiResponse(responseCode = "201", description = "Transaction created successfully")
     @ApiResponse(responseCode = "400", description = "Invalid request (e.g., unbalanced entries)")
+    @ApiResponse(responseCode = "403", description = "You do not own any account in this transaction")
     @PostMapping
     public ResponseEntity<Transaction> create(
+            @AuthenticationPrincipal String userId,
             @Valid @RequestBody CreateTransactionDto payload,
             @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
-        Transaction transaction = transactionService.create(payload, idempotencyKey);
+        Transaction transaction = transactionService.create(payload, idempotencyKey, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(transaction);
     }
 
     @Operation(summary = "Reverse a transaction", description = "Reverses a transaction")
+    @ApiResponse(responseCode = "403", description = "You are not authorized to reverse this transaction")
     @PostMapping("/{id}/reverse")
-    public Transaction reverse(@PathVariable String id) {
-        return transactionService.reverse(id);
+    public Transaction reverse(@AuthenticationPrincipal String userId, @PathVariable String id) {
+        return transactionService.reverse(id, userId);
     }
 }

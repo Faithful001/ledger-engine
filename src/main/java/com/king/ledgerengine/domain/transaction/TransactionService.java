@@ -23,19 +23,24 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TransactionService {
 
+    private static final int MIN_ENTRIES = 2;
+
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
     private final EntryRepository entryRepository;
 
     @Transactional
-    public Transaction create(CreateTransactionDto payload, String idempotencyKey) {
-        // Idempotency check
+    public Transaction create(CreateTransactionDto payload, String idempotencyKey, String userId) {
         var existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
             return existing.get();
         }
 
+        validateMinimumEntries(payload.getEntries());
         validateBalanced(payload.getEntries());
+
+        List<Account> accounts = resolveAccounts(payload.getEntries());
+        validateUserIsInvolved(accounts, userId);
 
         Transaction transaction = Transaction.builder()
                 .description(payload.getDescription())
@@ -46,10 +51,9 @@ public class TransactionService {
         transactionRepository.save(transaction);
 
         List<Entry> entries = new ArrayList<>();
-        for (EntryLineDto line : payload.getEntries()) {
-            Account account = accountRepository.findById(line.getAccountId())
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.NOT_FOUND, "Account not found: " + line.getAccountId()));
+        for (int i = 0; i < payload.getEntries().size(); i++) {
+            EntryLineDto line = payload.getEntries().get(i);
+            Account account = accounts.get(i);
 
             Entry entry = Entry.builder()
                     .transaction(transaction)
@@ -63,6 +67,76 @@ public class TransactionService {
 
         entryRepository.saveAll(entries);
         return transaction;
+    }
+
+    @Transactional
+    public Transaction reverse(String transactionId, String userId) {
+        Transaction original = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+
+        if (!original.involvesUser(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to reverse this transaction");
+        }
+
+        if (original.getStatus() != TransactionStatus.POSTED) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Only POSTED transactions can be reversed");
+        }
+
+        Transaction reversal = Transaction.builder()
+                .description("Reversal of: " + original.getDescription())
+                .status(TransactionStatus.POSTED)
+                .idempotencyKey("reversal-" + original.getId())
+                .build();
+
+        transactionRepository.save(reversal);
+
+        List<Entry> reversalEntries = new ArrayList<>();
+        for (Entry originalEntry : original.getEntries()) {
+            EntryType flipped = originalEntry.getType() == EntryType.DEBIT ? EntryType.CREDIT : EntryType.DEBIT;
+
+            Entry reversalEntry = Entry.builder()
+                    .transaction(reversal)
+                    .account(originalEntry.getAccount())
+                    .amount(originalEntry.getAmount())
+                    .type(flipped)
+                    .build();
+
+            reversalEntries.add(reversalEntry);
+        }
+
+        entryRepository.saveAll(reversalEntries);
+
+        original.setStatus(TransactionStatus.REVERSED);
+        transactionRepository.save(original);
+
+        return reversal;
+    }
+
+    private List<Account> resolveAccounts(List<EntryLineDto> lines) {
+        List<Account> accounts = new ArrayList<>();
+        for (EntryLineDto line : lines) {
+            Account account = accountRepository.findById(line.getAccountId())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Account not found: " + line.getAccountId()));
+            accounts.add(account);
+        }
+        return accounts;
+    }
+
+    private void validateUserIsInvolved(List<Account> accounts, String userId) {
+        boolean involved = accounts.stream().anyMatch(account -> account.getUser().getId().equals(userId));
+        if (!involved) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You must own at least one account in this transaction");
+        }
+    }
+
+    private void validateMinimumEntries(List<EntryLineDto> lines) {
+        if (lines == null || lines.size() < MIN_ENTRIES) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "A transaction requires at least " + MIN_ENTRIES + " entries");
+        }
     }
 
     private void validateBalanced(List<EntryLineDto> lines) {
@@ -82,45 +156,5 @@ public class TransactionService {
                     HttpStatus.BAD_REQUEST,
                     "Transaction is not balanced: debits=" + debits + " credits=" + credits);
         }
-    }
-
-    @Transactional
-    public Transaction reverse(String transactionId) {
-        Transaction original = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
-
-        if (original.getStatus() != TransactionStatus.POSTED) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Only POSTED transactions can be reversed");
-        }
-
-        Transaction reversal = Transaction.builder()
-                .description("Reversal of: " + original.getDescription())
-                .status(TransactionStatus.POSTED)
-                .idempotencyKey("reversal-" + original.getId())
-                .build();
-
-        transactionRepository.save(reversal);
-
-        List<Entry> reversalEntries = new ArrayList<>();
-        for (Entry original_entry : original.getEntries()) {
-            EntryType flipped = original_entry.getType() == EntryType.DEBIT ? EntryType.CREDIT : EntryType.DEBIT;
-
-            Entry reversalEntry = Entry.builder()
-                    .transaction(reversal)
-                    .account(original_entry.getAccount())
-                    .amount(original_entry.getAmount())
-                    .type(flipped)
-                    .build();
-
-            reversalEntries.add(reversalEntry);
-        }
-
-        entryRepository.saveAll(reversalEntries);
-
-        original.setStatus(TransactionStatus.REVERSED);
-        transactionRepository.save(original);
-
-        return reversal;
     }
 }

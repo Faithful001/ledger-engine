@@ -15,14 +15,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public User create(CreateUserDto payload) {
-        if (userRepository.existsByEmail(payload.getEmail())) {
+    public User create(String firstName, String lastName, String email, String password) {
+        if (userRepository.existsByEmail(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
         }
 
         User user = User.builder()
-                .email(payload.getEmail())
-                .password(passwordEncoder.encode(payload.getPassword()))
+                .firstName(firstName)
+                .lastName(lastName)
+                .email(email)
+                .password(passwordEncoder.encode(password))
                 .build();
 
         return userRepository.save(user);

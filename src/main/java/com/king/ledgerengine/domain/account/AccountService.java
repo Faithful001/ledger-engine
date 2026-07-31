@@ -23,13 +23,13 @@ public class AccountService {
 
     // POST
     public Account create(@NonNull CreateAccountDto payload, String userId){
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         Account account = Account.builder()
                 .name(payload.getName())
                 .type(payload.getType())
-                .user(user)
+                .user(userRepository.getReferenceById(userId))
                 .build();
 
         return accountRepository.save(account);
