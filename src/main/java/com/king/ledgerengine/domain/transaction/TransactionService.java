@@ -29,7 +29,7 @@ public class TransactionService {
 
     @Transactional
     public Transaction create(CreateTransactionDto payload, String idempotencyKey) {
-        // Idempotency check — if this key was already processed, return the existing result
+        // Idempotency check
         var existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
             return existing.get();
