@@ -31,10 +31,10 @@ public class AuthService {
 
     public Map<String, Object> login(LoginDto payload) {
         User user = userRepository.findByEmail(payload.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email"));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
         if (!passwordEncoder.matches(payload.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Invalid password");
+            throw new IllegalArgumentException("Invalid credentials");
         }
 
         String token = jwtService.generateToken(user.getId(), user.getEmail());

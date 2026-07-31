@@ -17,7 +17,6 @@ import java.util.Map;
 @Tag(name = "Auth", description = "User authentication")
 @RequiredArgsConstructor
 public class AuthController {
-
     private final AuthService authService;
 
     @PostMapping("/register")
