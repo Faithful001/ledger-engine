@@ -33,7 +33,23 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(
+                ex ->
+                    ex.authenticationEntryPoint((request, response, authException) -> {
+                        response.setStatus(401);
+                        response.setContentType("application/json");
+                        response.getWriter().write(
+                                """
+                                        {"success": "false", "statusCode": 401, "message": "Unauthorized", "data": null}
+                                        """);
+                    }).accessDeniedHandler((request, response, accessDeniedException) -> {
+                        response.setStatus(403);
+                        response.setContentType("application/json");
+                        response.getWriter().write("""
+                        {"success":false,"statusCode":403,"message":"Access denied", data: null}
+                        """);
+                    }));
 
         return http.build();
     }
