@@ -7,6 +7,7 @@ import com.king.ledgerengine.domain.entry.entity.Entry;
 import com.king.ledgerengine.domain.user.UserRepository;
 import com.king.ledgerengine.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountService {
@@ -52,5 +54,6 @@ public class AccountService {
         accountRepository.findByIdAndUserId(accountId, userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Account not found or does not belong to this user"));
+        log.info("account {} is owned by user {}", accountId, userId);
     }
 }

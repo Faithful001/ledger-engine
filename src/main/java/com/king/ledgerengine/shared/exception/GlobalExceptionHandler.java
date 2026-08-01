@@ -17,7 +17,7 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Response<?>> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<Response<List<Map<String, String>>>> handleValidation(MethodArgumentNotValidException ex) {
         List<Map<String, String>> errors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -28,13 +28,13 @@ public class GlobalExceptionHandler {
                 .toList();
 
         return new ResponseEntity<>(
-                Response.error(errors.toString(), ex.getStatusCode().value()),
+                Response.error("Validation failed", ex.getStatusCode().value()),
                 ex.getStatusCode()
         );
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Response<?>> handleStatus(ResponseStatusException ex) {
+    public ResponseEntity<Response<Object>> handleStatus(ResponseStatusException ex) {
         return new ResponseEntity<>(
                 Response.error(ex.getReason(), ex.getStatusCode().value()),
                 HttpStatus.valueOf(ex.getStatusCode().value())
@@ -42,7 +42,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<Response<?>> handleDataIntegrity(DataIntegrityViolationException ex) {
+    public ResponseEntity<Response<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
         return new ResponseEntity<>(
                 Response.error("Data conflict: " + ex.getMostSpecificCause().getMessage(), HttpStatus.CONFLICT.value()),
                 HttpStatus.CONFLICT
@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Response<?>> handleGeneric(Exception ex) {
+    public ResponseEntity<Response<Object>> handleGeneric(Exception ex) {
         String message = ex.getMessage() != null ? ex.getMessage() : "Internal Server Error";
         return new ResponseEntity<>(
                 Response.error(message, HttpStatus.INTERNAL_SERVER_ERROR.value()),
@@ -59,9 +59,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<Response<?>> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
+    public ResponseEntity<Response<Object>> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
         return new ResponseEntity<>(
-                Response.error("Method not allowed: " + ex.getMethod(), 405),
+                Response.error("Method not allowed: " + ex.getMethod(), HttpStatus.METHOD_NOT_ALLOWED.value()),
                 HttpStatus.METHOD_NOT_ALLOWED
         );
     }

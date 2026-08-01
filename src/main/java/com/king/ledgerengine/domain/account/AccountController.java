@@ -7,14 +7,18 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/accounts")
 @RequiredArgsConstructor
@@ -29,10 +33,10 @@ public class AccountController {
         return ResponseEntity.status(HttpStatus.CREATED).body(account);
     }
 
-    @Operation(summary = "Get the current computed balance for an account")
     @GetMapping("/{id}/balance")
-    public BigDecimal getBalance(@AuthenticationPrincipal String userId, @PathVariable String id) {
-        return accountService.getBalance(id, userId);
+    public Map<String, BigDecimal> getBalance(@AuthenticationPrincipal String userId, @PathVariable String id) {
+        BigDecimal balance = accountService.getBalance(id, userId);
+        return Map.of("balance", balance);
     }
 
     @Operation(summary = "Get the full entry history for an account")
