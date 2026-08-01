@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +28,7 @@ public class TransactionController {
     public ResponseEntity<Transaction> create(
             @AuthenticationPrincipal String userId,
             @Valid @RequestBody CreateTransactionDto payload,
-            @RequestHeader("Idempotency-Key") String idempotencyKey
+            @NotBlank @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
         Transaction transaction = transactionService.create(payload, idempotencyKey, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(transaction);

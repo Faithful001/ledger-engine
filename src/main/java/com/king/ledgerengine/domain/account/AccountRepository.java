@@ -1,7 +1,9 @@
 package com.king.ledgerengine.domain.account;
 
 import com.king.ledgerengine.domain.account.entity.Account;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,4 +18,12 @@ public interface AccountRepository extends JpaRepository<Account, String> {
     List<Account> findByUserId(
             @Param("userId") String userId
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query(
+            """
+    SELECT a FROM Account a WHERE a.id = :id
+"""
+    )
+    Account findByIdWithLock(@Param("id") String id);
 }

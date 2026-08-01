@@ -10,6 +10,7 @@ import com.king.ledgerengine.domain.transaction.dto.EntryLineDto;
 import com.king.ledgerengine.domain.transaction.entity.Transaction;
 import com.king.ledgerengine.domain.transaction.enums.TransactionStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,13 +43,28 @@ public class TransactionService {
         List<Account> accounts = resolveAccounts(payload.getEntries());
         validateUserIsInvolved(accounts, userId);
 
+        for (EntryLineDto line : payload.getEntries()) {
+            if (line.getType() == EntryType.DEBIT) {
+                Account account = accountRepository.findByIdWithLock(line.getAccountId());
+                BigDecimal currentBalance = entryRepository.getBalance(account.getId());
+                if (currentBalance.subtract(line.getAmount()).compareTo(BigDecimal.ZERO) < 0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient balance on account " + account.getId());
+                }
+            }
+        }
+
         Transaction transaction = Transaction.builder()
                 .description(payload.getDescription())
                 .status(TransactionStatus.POSTED)
                 .idempotencyKey(idempotencyKey)
                 .build();
 
-        transactionRepository.save(transaction);
+        try {
+            transactionRepository.save(transaction);
+        } catch (DataIntegrityViolationException e) {
+            return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                    .orElseThrow(() -> e);
+        }
 
         List<Entry> entries = new ArrayList<>();
         for (int i = 0; i < payload.getEntries().size(); i++) {
@@ -155,6 +171,20 @@ public class TransactionService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Transaction is not balanced: debits=" + debits + " credits=" + credits);
+        }
+    }
+
+    private void validateUniqueAccounts(List<EntryLineDto> lines) {
+        long uniqueAccountCount = lines.stream()
+                .map(EntryLineDto::getAccountId)
+                .distinct()
+                .count();
+
+        if (uniqueAccountCount != lines.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "An account cannot appear more than once in a transaction"
+            );
         }
     }
 }
