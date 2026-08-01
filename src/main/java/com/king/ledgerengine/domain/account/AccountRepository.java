@@ -25,5 +25,5 @@ public interface AccountRepository extends JpaRepository<Account, String> {
     SELECT a FROM Account a WHERE a.id = :id
 """
     )
-    Account findByIdWithLock(@Param("id") String id);
+    Optional<Account> findByIdWithLock(@Param("id") String id);
 }

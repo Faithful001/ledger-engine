@@ -18,7 +18,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -43,15 +45,7 @@ public class TransactionService {
         List<Account> accounts = resolveAccounts(payload.getEntries());
         validateUserIsInvolved(accounts, userId);
 
-        for (EntryLineDto line : payload.getEntries()) {
-            if (line.getType() == EntryType.DEBIT) {
-                Account account = accountRepository.findByIdWithLock(line.getAccountId());
-                BigDecimal currentBalance = entryRepository.getBalance(account.getId());
-                if (currentBalance.subtract(line.getAmount()).compareTo(BigDecimal.ZERO) < 0) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient balance on account " + account.getId());
-                }
-            }
-        }
+        validateSufficientBalances(payload.getEntries());
 
         Transaction transaction = Transaction.builder()
                 .description(payload.getDescription())
@@ -95,9 +89,20 @@ public class TransactionService {
         }
 
         if (original.getStatus() != TransactionStatus.POSTED) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Only POSTED transactions can be reversed");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only POSTED transactions can be reversed");
         }
+
+        List<EntryLineDto> flippedLines = original.getEntries().stream()
+                .map(entry -> {
+                    EntryLineDto line = new EntryLineDto();
+                    line.setAccountId(entry.getAccount().getId());
+                    line.setAmount(entry.getAmount());
+                    line.setType(entry.getType() == EntryType.DEBIT ? EntryType.CREDIT : EntryType.DEBIT);
+                    return line;
+                })
+                .toList();
+
+        validateSufficientBalances(flippedLines);
 
         Transaction reversal = Transaction.builder()
                 .description("Reversal of: " + original.getDescription())
@@ -105,21 +110,21 @@ public class TransactionService {
                 .idempotencyKey("reversal-" + original.getId())
                 .build();
 
-        transactionRepository.save(reversal);
-
-        List<Entry> reversalEntries = new ArrayList<>();
-        for (Entry originalEntry : original.getEntries()) {
-            EntryType flipped = originalEntry.getType() == EntryType.DEBIT ? EntryType.CREDIT : EntryType.DEBIT;
-
-            Entry reversalEntry = Entry.builder()
-                    .transaction(reversal)
-                    .account(originalEntry.getAccount())
-                    .amount(originalEntry.getAmount())
-                    .type(flipped)
-                    .build();
-
-            reversalEntries.add(reversalEntry);
+        try {
+            transactionRepository.save(reversal);
+        } catch (DataIntegrityViolationException e) {
+            return transactionRepository.findByIdempotencyKey(reversal.getIdempotencyKey())
+                    .orElseThrow(() -> e);
         }
+
+        List<Entry> reversalEntries = original.getEntries().stream()
+                .map(originalEntry -> Entry.builder()
+                        .transaction(reversal)
+                        .account(originalEntry.getAccount())
+                        .amount(originalEntry.getAmount())
+                        .type(originalEntry.getType() == EntryType.DEBIT ? EntryType.CREDIT : EntryType.DEBIT)
+                        .build())
+                .toList();
 
         entryRepository.saveAll(reversalEntries);
 
@@ -148,6 +153,35 @@ public class TransactionService {
         }
     }
 
+    // Makes sure debited accounts have enough balance.
+    // Locks them in sorted order to avoid deadlocks between concurrent transactions.
+    private void validateSufficientBalances(List<EntryLineDto> lines) {
+        Map<String, BigDecimal> totalDebitsByAccount = new HashMap<>();
+        for (EntryLineDto line : lines) {
+            if (line.getType() == EntryType.DEBIT) {
+                totalDebitsByAccount.merge(line.getAccountId(), line.getAmount(), BigDecimal::add);
+            }
+        }
+
+        List<String> debitAccountIds = totalDebitsByAccount.keySet().stream()
+                .sorted()
+                .toList();
+
+        for (String accountId : debitAccountIds) {
+            Account account = accountRepository.findByIdWithLock(accountId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Account not found: " + accountId));
+
+            BigDecimal currentBalance = entryRepository.getBalance(account.getId());
+            BigDecimal totalDebit = totalDebitsByAccount.get(accountId);
+
+            if (currentBalance.subtract(totalDebit).compareTo(BigDecimal.ZERO) < 0) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Insufficient balance on account " + accountId);
+            }
+        }
+    }
+
     private void validateMinimumEntries(List<EntryLineDto> lines) {
         if (lines == null || lines.size() < MIN_ENTRIES) {
             throw new ResponseStatusException(
@@ -171,20 +205,6 @@ public class TransactionService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Transaction is not balanced: debits=" + debits + " credits=" + credits);
-        }
-    }
-
-    private void validateUniqueAccounts(List<EntryLineDto> lines) {
-        long uniqueAccountCount = lines.stream()
-                .map(EntryLineDto::getAccountId)
-                .distinct()
-                .count();
-
-        if (uniqueAccountCount != lines.size()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "An account cannot appear more than once in a transaction"
-            );
         }
     }
 }
