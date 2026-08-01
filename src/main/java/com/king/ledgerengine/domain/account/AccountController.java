@@ -14,7 +14,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +30,18 @@ public class AccountController {
     public ResponseEntity<Account> create(@AuthenticationPrincipal String userId, @Valid @RequestBody CreateAccountDto payload) {
         Account account = accountService.create(payload, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(account);
+    }
+
+    @Operation(summary = "Get all accounts")
+    @GetMapping("")
+    public List<Account> getAll(@AuthenticationPrincipal String userId) {
+        return accountService.getAll(userId);
+    }
+
+    @Operation(summary = "Get account by id")
+    @GetMapping("/{id}")
+    public Account getOne(@AuthenticationPrincipal String userId, @PathVariable String id) {
+        return accountService.getOne(userId, id);
     }
 
     @GetMapping("/{id}/balance")

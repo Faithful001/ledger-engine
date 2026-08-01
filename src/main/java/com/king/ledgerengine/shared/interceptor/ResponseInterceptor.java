@@ -27,7 +27,8 @@ public class ResponseInterceptor implements ResponseBodyAdvice<Object> {
 
     @Override
     public boolean supports(@NonNull MethodParameter returnType, @NonNull Class converterType) {
-        return true;
+        String declaringClassName = returnType.getDeclaringClass().getName();
+        return !declaringClassName.startsWith("org.springdoc");
     }
 
     @Override

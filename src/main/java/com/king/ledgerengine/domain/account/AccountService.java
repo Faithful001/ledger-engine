@@ -38,19 +38,31 @@ public class AccountService {
     }
 
     // GET
+    public List<Account> getAll(String userId) {
+        return accountRepository.findByUserId(userId);
+    }
+
+    // GET
+    public Account getOne(String userId, String id) {
+        return accountRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Account not found or does not belong to this user"));
+    }
+
+    // GET
     public BigDecimal getBalance(String accountId, String userId) {
-        assertOwnership(accountId, userId);
+        assertOwnership(userId, accountId);
         return entryRepository.getBalance(accountId);
     }
 
     // GET
     public List<Entry> getEntries(String accountId, String userId) {
-        assertOwnership(accountId, userId);
+        assertOwnership(userId, accountId);
         return entryRepository.findByAccountId(accountId);
     }
 
     // helper
-    private void assertOwnership(String accountId, String userId){
+    private void assertOwnership(String userId, String accountId){
         accountRepository.findByIdAndUserId(accountId, userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Account not found or does not belong to this user"));
