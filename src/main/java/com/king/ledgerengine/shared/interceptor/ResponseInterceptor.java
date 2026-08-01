@@ -2,6 +2,7 @@ package com.king.ledgerengine.shared.interceptor;
 
 import com.king.ledgerengine.shared.response.Response;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.NonNull;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
@@ -17,56 +18,50 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class ResponseInterceptor implements ResponseBodyAdvice<Object> {
-
     @Override
-    public boolean supports(MethodParameter returnType, @NonNull Class converterType) {
-        return !ResponseEntity.class.isAssignableFrom(returnType.getParameterType());
+    public boolean supports(@NonNull MethodParameter returnType, @NonNull Class converterType) {
+       return true;
     }
 
     @Override
-    public Object beforeBodyWrite(
+    public Map<String, Object> beforeBodyWrite(
             Object body,
             @NonNull MethodParameter returnType,
             @NonNull MediaType contentType,
             @NonNull Class converterType,
             @NonNull ServerHttpRequest request,
             @NonNull ServerHttpResponse response
-    ) {
-        HttpServletRequest req =
-                ((ServletServerHttpRequest) request).getServletRequest();
 
-        var servletResponse =
-                ((ServletServerHttpResponse) response).getServletResponse();
-
-        int currentStatus = servletResponse.getStatus();
+    ){
+        HttpServletRequest req = ((ServletServerHttpRequest) request).getServletRequest();
+        HttpServletResponse res = ((ServletServerHttpResponse) response).getServletResponse();
+        int currentStatus = res.getStatus();
 
         Integer overrideStatus = null;
-        Object data = null;
         String message = null;
+        Object data = null;
 
         if (body instanceof Response<?> api) {
             overrideStatus = api.getStatusCode();
-            data = api.getData();
             message = api.getMessage();
+            data = api.getData();
         } else {
             data = body;
         }
 
-        // Status code rule
         int finalStatus = currentStatus;
-        if (overrideStatus != null && overrideStatus >= 400) {
+
+        if (overrideStatus != null && overrideStatus <= 400) {
             finalStatus = overrideStatus;
-            servletResponse.setStatus(finalStatus);
+            res.setStatus(finalStatus);
         }
 
-        // Data rule
-        Object finalData = data != null ? data : null;
+        Object finalData = data;
 
-        // Message rule
         String finalMessage =
-                message != null
-                        ? message
-                        : resolveDefaultMessage(finalStatus, req.getMethod());
+                message != null ?
+                message :
+                resolveDefaultMessage(finalStatus, req.getMethod());
 
         return Map.of(
                 "statusCode", finalStatus,
@@ -75,13 +70,15 @@ public class ResponseInterceptor implements ResponseBodyAdvice<Object> {
         );
     }
 
-    private String resolveDefaultMessage(int status, String method) {
-        if (method.equals("POST") && status == 201) {
+    public String resolveDefaultMessage(int status, String method) {
+        if (method.equals("POST") && status == 201){
             return "Resource created successfully";
         }
+
         if (status >= 200 && status < 300) {
             return "Request successful";
         }
+
         return "Request failed";
     }
 }
