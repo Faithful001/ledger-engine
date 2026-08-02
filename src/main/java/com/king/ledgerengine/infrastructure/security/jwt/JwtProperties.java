@@ -1,4 +1,4 @@
-package com.king.ledgerengine.shared.jwt;
+package com.king.ledgerengine.infrastructure.security.jwt;
 
 import lombok.Getter;
 import lombok.Setter;

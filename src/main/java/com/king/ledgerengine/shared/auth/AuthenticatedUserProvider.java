@@ -1,4 +1,4 @@
-package com.king.ledgerengine.shared.security;
+package com.king.ledgerengine.shared.auth;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;

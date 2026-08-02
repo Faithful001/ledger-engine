@@ -1,4 +1,4 @@
-package com.king.ledgerengine.shared.jwt;
+package com.king.ledgerengine.infrastructure.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

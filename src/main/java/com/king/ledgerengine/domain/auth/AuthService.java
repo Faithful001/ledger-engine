@@ -5,7 +5,7 @@ import com.king.ledgerengine.domain.auth.dto.RegisterDto;
 import com.king.ledgerengine.domain.user.UserRepository;
 import com.king.ledgerengine.domain.user.UserService;
 import com.king.ledgerengine.domain.user.entity.User;
-import com.king.ledgerengine.shared.jwt.JwtService;
+import com.king.ledgerengine.infrastructure.security.jwt.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
