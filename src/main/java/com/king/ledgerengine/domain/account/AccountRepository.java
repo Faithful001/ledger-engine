@@ -1,6 +1,8 @@
 package com.king.ledgerengine.domain.account;
 
 import com.king.ledgerengine.domain.account.entity.Account;
+import com.king.ledgerengine.domain.account.enums.AccountOwnerType;
+import com.king.ledgerengine.domain.account.enums.AccountType;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -26,4 +28,6 @@ public interface AccountRepository extends JpaRepository<Account, String> {
 """
     )
     Optional<Account> findByIdWithLock(@Param("id") String id);
+
+    Optional<Account> findFirstByOwnerType(AccountOwnerType type);
 }

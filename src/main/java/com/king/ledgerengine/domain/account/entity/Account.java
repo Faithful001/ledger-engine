@@ -1,5 +1,6 @@
 package com.king.ledgerengine.domain.account.entity;
 
+import com.king.ledgerengine.domain.account.enums.AccountOwnerType;
 import com.king.ledgerengine.domain.account.enums.AccountType;
 import com.king.ledgerengine.domain.user.entity.User;
 import jakarta.persistence.*;
@@ -16,7 +17,7 @@ import java.time.LocalDateTime;
 @Builder
 public class Account {
     @Id
-    @GeneratedValue(strategy=GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
     @Column(nullable = false)
@@ -25,6 +26,11 @@ public class Account {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AccountType type;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(nullable = false)
+    private AccountOwnerType ownerType = AccountOwnerType.USER;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)

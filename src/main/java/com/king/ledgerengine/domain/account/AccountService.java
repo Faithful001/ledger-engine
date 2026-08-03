@@ -2,6 +2,7 @@ package com.king.ledgerengine.domain.account;
 
 import com.king.ledgerengine.domain.account.dto.CreateAccountDto;
 import com.king.ledgerengine.domain.account.entity.Account;
+import com.king.ledgerengine.domain.account.enums.AccountOwnerType;
 import com.king.ledgerengine.domain.entry.EntryRepository;
 import com.king.ledgerengine.domain.entry.entity.Entry;
 import com.king.ledgerengine.domain.user.UserRepository;
@@ -31,6 +32,7 @@ public class AccountService {
         Account account = Account.builder()
                 .name(payload.getName())
                 .type(payload.getType())
+                .ownerType(AccountOwnerType.USER)
                 .user(userRepository.getReferenceById(userId))
                 .build();
 

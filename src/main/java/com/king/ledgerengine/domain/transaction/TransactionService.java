@@ -2,10 +2,13 @@ package com.king.ledgerengine.domain.transaction;
 
 import com.king.ledgerengine.domain.account.AccountRepository;
 import com.king.ledgerengine.domain.account.entity.Account;
+import com.king.ledgerengine.domain.account.enums.AccountOwnerType;
+import com.king.ledgerengine.domain.account.enums.AccountType;
 import com.king.ledgerengine.domain.entry.EntryRepository;
 import com.king.ledgerengine.domain.entry.entity.Entry;
 import com.king.ledgerengine.domain.entry.enums.EntryType;
 import com.king.ledgerengine.domain.transaction.dto.CreateTransactionDto;
+import com.king.ledgerengine.domain.transaction.dto.DepositDto;
 import com.king.ledgerengine.domain.transaction.dto.EntryLineDto;
 import com.king.ledgerengine.domain.transaction.entity.Transaction;
 import com.king.ledgerengine.domain.transaction.enums.TransactionStatus;
@@ -34,6 +37,15 @@ public class TransactionService {
 
     @Transactional
     public Transaction create(CreateTransactionDto payload, String idempotencyKey, String userId) {
+        return create(payload, idempotencyKey, userId, false);
+    }
+
+    @Transactional
+    public Transaction createInternal(CreateTransactionDto payload, String idempotencyKey, String userId) {
+        return create(payload, idempotencyKey, userId, true);
+    }
+
+    private Transaction create(CreateTransactionDto payload, String idempotencyKey, String userId, boolean allowSystemAccounts) {
         var existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
             return existing.get();
@@ -43,8 +55,16 @@ public class TransactionService {
         validateBalanced(payload.getEntries());
 
         List<Account> accounts = resolveAccounts(payload.getEntries());
-        validateUserIsInvolved(accounts, userId);
 
+        if (!allowSystemAccounts) {
+            boolean touchesSystemAccount = accounts.stream()
+                    .anyMatch(account -> account.getOwnerType() == AccountOwnerType.SYSTEM);
+            if (touchesSystemAccount) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This operation cannot reference system accounts");
+            }
+        }
+
+        validateUserIsInvolved(accounts, userId);
         validateSufficientBalances(payload.getEntries());
 
         Transaction transaction = Transaction.builder()
@@ -77,6 +97,30 @@ public class TransactionService {
 
         entryRepository.saveAll(entries);
         return transaction;
+    }
+
+    public Transaction deposit(DepositDto dto, String idempotencyKey, String userId) {
+        Account systemAccount = accountRepository.findFirstByOwnerType(AccountOwnerType.SYSTEM)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR, "System account not configured"));
+
+        EntryLineDto debitSystem = new EntryLineDto();
+        debitSystem.setAccountId(systemAccount.getId());
+        debitSystem.setAmount(dto.getAmount());
+        debitSystem.setType(EntryType.DEBIT);
+
+        EntryLineDto creditUser = new EntryLineDto();
+        creditUser.setAccountId(dto.getAccountId());
+        creditUser.setAmount(dto.getAmount());
+        creditUser.setType(EntryType.CREDIT);
+
+        CreateTransactionDto txDto = new CreateTransactionDto();
+        txDto.setDescription(dto.getDescription());
+        txDto.setEntries(List.of(debitSystem, creditUser));
+
+        // Note: userId here is the acting/requesting user, not necessarily the
+        // owner of the account being credited — see ownership discussion below.
+        return create(txDto, idempotencyKey, userId);
     }
 
     @Transactional
@@ -171,6 +215,10 @@ public class TransactionService {
             Account account = accountRepository.findByIdWithLock(accountId)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "Account not found: " + accountId));
+
+            if (account.getOwnerType() != AccountOwnerType.SYSTEM) {
+                continue;
+            }
 
             BigDecimal currentBalance = entryRepository.getBalance(account.getId());
             BigDecimal totalDebit = totalDebitsByAccount.get(accountId);

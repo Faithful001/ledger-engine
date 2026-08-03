@@ -1,6 +1,7 @@
 package com.king.ledgerengine.domain.transaction;
 
 import com.king.ledgerengine.domain.transaction.dto.CreateTransactionDto;
+import com.king.ledgerengine.domain.transaction.dto.DepositDto;
 import com.king.ledgerengine.domain.transaction.entity.Transaction;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,6 +34,17 @@ public class TransactionController {
             @NotBlank @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
         Transaction transaction = transactionService.create(payload, idempotencyKey, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(transaction);
+    }
+
+    @Operation(summary = "Deposit funds into your account")
+    @PostMapping("/deposit")
+    public ResponseEntity<Transaction> deposit(
+            @AuthenticationPrincipal String userId,
+            @Valid @RequestBody DepositDto payload,
+            @NotBlank @RequestHeader("Idempotency-Key") String idempotencyKey
+    ) {
+        Transaction transaction = transactionService.deposit(payload, idempotencyKey, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(transaction);
     }
 
