@@ -1,5 +1,6 @@
 package com.king.ledgerengine.config;
 
+import com.king.ledgerengine.infrastructure.security.apiclient.ApiKeyAuthFilter;
 import com.king.ledgerengine.infrastructure.security.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -17,40 +18,43 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ApiKeyAuthFilter apiKeyAuthFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(
-                            "/auth/**",
-                            "/swagger-ui/**",
-                            "/swagger-ui.html",
-                            "/v3/api-docs/**",
-                            "/v3/api-docs.yaml",
-                            "/error"
-                    ).permitAll()
-                    .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .exceptionHandling(
-            ex ->
-                ex.authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(401);
-                    response.setContentType("application/json");
-                    response.getWriter().write(
-                            """
-                                    {"success": "false", "statusCode": 401, "message": "Unauthorized", "data": null}
-                                    """);
-                }).accessDeniedHandler((request, response, accessDeniedException) -> {
-                    response.setStatus(403);
-                    response.setContentType("application/json");
-                    response.getWriter().write("""
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/auth/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml",
+                                "/error"
+                        ).permitAll()
+                        .requestMatchers("/transactions/**").hasAnyRole("USER", "SERVICE")
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(
+                        ex ->
+                                ex.authenticationEntryPoint((request, response, authException) -> {
+                                    response.setStatus(401);
+                                    response.setContentType("application/json");
+                                    response.getWriter().write(
+                                            """
+                                                    {"success": "false", "statusCode": 401, "message": "Unauthorized", "data": null}
+                                                    """);
+                                }).accessDeniedHandler((request, response, accessDeniedException) -> {
+                                    response.setStatus(403);
+                                    response.setContentType("application/json");
+                                    response.getWriter().write("""
                     {"success":false,"statusCode":403,"message":"Access denied", data: null}
                     """);
-                }));
+                                }));
 
         return http.build();
     }
