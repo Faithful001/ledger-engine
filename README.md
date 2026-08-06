@@ -1,8 +1,10 @@
 # Ledger Engine
 
-Double-entry ledger engine in Spring Boot with balance validation & immutable audit trail.
+Double-entry ledger engine in Spring Boot with balance validation and immutable audit trail.
 
 A backend service that models real double-entry bookkeeping: every transaction is split into balanced debit/credit entries, balances are always derived from entry history (never stored as mutable state), and nothing is ever deleted, only appended.
+
+This service is the source of truth for account balances in a small distributed system. It is deliberately general-purpose: it has no knowledge of payments, users making purchases, or any particular business flow. It only knows how to accept balanced transactions and record them permanently. See [Interconnected Services](#interconnected-services) for how it fits alongside the [Payment Processor](https://github.com/Faithful001/payment-processor).
 
 ## Core Concept
 
@@ -21,6 +23,7 @@ A backend service that models real double-entry bookkeeping: every transaction i
 - **Lombok**: boilerplate reduction
 - **Spring Validation**: request-level input validation
 - **Spring Actuator**: health/metrics endpoints
+- **springdoc-openapi**: Swagger UI / OpenAPI documentation
 - **Maven**: build tool
 
 ## Architecture
@@ -50,7 +53,7 @@ com.king.ledgerengine
 
 ### Why no `Balance` entity?
 
-Balance is intentionally **not** a stored, mutable field. It's a derived value:
+Balance is intentionally not a stored, mutable field. It's a derived value:
 
 ```
 balance(account) = SUM(credits) - SUM(debits)
@@ -78,6 +81,38 @@ Storing it separately would risk drift between the "official" entry history and 
 - **Append-only entries**: entries have no `UPDATE`/`DELETE` path. Corrections are made via `POST /transactions/{id}/reverse`, which creates new offsetting entries rather than touching the original transaction.
 - **Database-level constraints**: foreign keys, `NOT NULL`, and unique constraints (e.g. on `idempotency_key`) act as a second line of defense beyond application-level checks.
 
+## Interconnected Services
+
+This project is designed to be one component of a small distributed system, not a standalone application in production use. It intentionally accepts transactions from **any** authenticated caller and has no awareness of where a transaction request originates.
+
+```
+┌─────────────────────┐         RabbitMQ          ┌─────────────────────┐
+│  Payment Processor   │  ───── PaymentCaptured ──▶│   (event consumed   │
+│  (separate service)  │        event               │    by listener)    │
+└─────────────────────┘                            └──────────┬──────────┘
+                                                                │
+                                                     HTTP POST  │  /transactions
+                                                                ▼
+                                                     ┌─────────────────────┐
+                                                     │   Ledger Engine     │
+                                                     │  (this service)     │
+                                                     └─────────────────────┘
+```
+
+**What this means in practice:**
+- The **Payment Processor** handles payment authorization, capture, and refund logic entirely on its own. Once a payment is captured, it publishes an event and calls this service's `POST /transactions` endpoint to record the settled movement of funds.
+- This service has **no dependency on the Payment Processor existing**. It does not know what a "payment" is, only that it received a request for a balanced transaction between two accounts.
+- The two services **do not share a database**. All communication happens over HTTP, the same as any external caller would use this API.
+- This separation means either service can be deployed, scaled, or replaced independently. A future third service (a manual journal entry tool, a batch import job, a different payment provider) could post transactions here using the exact same API, with zero changes to this codebase.
+
+**To run this service as part of the full distributed setup:**
+1. Start Postgres for this service (and a separate Postgres database for the Payment Processor, they should not share a database)
+2. Run this Ledger Engine on its own port, e.g. `server.port=8081`
+3. Run the [Payment Processor](https://github.com/Faithful001/payment-processor) on a different port, e.g. `server.port=8080`, with `ledger.engine.base-url=http://localhost:8081` set in its configuration
+4. Capture a payment in the Payment Processor and confirm the resulting transaction appears here via `GET /accounts/{id}/entries`
+
+See the Payment Processor's README for the full end-to-end event flow.
+
 ## Getting Started
 
 ### Prerequisites
@@ -88,9 +123,11 @@ Storing it separately would risk drift between the "official" entry history and 
 
 ### Configuration
 
-Set your database connection in `src/main/resources/application.properties`:
+Set your database connection in `src/main/resources/application.properties` (or via `.env`, loaded manually at startup):
 
 ```properties
+server.port=8081
+
 spring.datasource.url=jdbc:postgresql://localhost:5432/ledger_engine
 spring.datasource.username=your_username
 spring.datasource.password=your_password
@@ -103,12 +140,12 @@ spring.jpa.hibernate.ddl-auto=update
 ./mvnw spring-boot:run
 ```
 
-The API will be available at `http://localhost:8080`.
+The API will be available at `http://localhost:8081` (adjust if running standalone rather than alongside the Payment Processor), and Swagger UI at `http://localhost:8081/swagger-ui/index.html`.
 
 ### Example: creating a transaction
 
 ```bash
-curl -X POST http://localhost:8080/transactions \
+curl -X POST http://localhost:8081/transactions \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: unique-key-123" \
   -H "X-User-Id: <user-id>" \
@@ -128,6 +165,7 @@ curl -X POST http://localhost:8080/transactions \
 - [x] Balance computation via aggregate query
 - [x] Idempotency key enforcement
 - [x] Transaction reversal (offsetting entries)
+- [x] Integration with Payment Processor via HTTP API
 - [ ] Optimistic locking on Account
 - [ ] Audit log table
 - [ ] System-wide reconciliation endpoint
@@ -141,3 +179,4 @@ curl -X POST http://localhost:8080/transactions \
 - **Amounts are stored as `BigDecimal`**, not floating-point, to avoid rounding errors inherent to `double`/`float` in financial calculations.
 - **Entity relationships use `@ManyToOne`** from `Entry` to both `Transaction` and `Account`: many entries belong to one transaction, many entries belong to one account.
 - **Package-by-domain, not package-by-layer**: each bounded context (`account`, `transaction`, `entry`, `user`) owns its own entity, repository, service, and controller, rather than grouping all controllers together, all services together, etc.
+- **This service is intentionally source-agnostic.** Keeping it decoupled from any single upstream caller (like the Payment Processor) is what makes it reusable as a general-purpose ledger rather than payment-specific infrastructure.

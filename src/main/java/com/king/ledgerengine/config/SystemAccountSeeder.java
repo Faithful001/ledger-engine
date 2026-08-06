@@ -3,6 +3,7 @@ package com.king.ledgerengine.config;
 import com.king.ledgerengine.domain.account.AccountRepository;
 import com.king.ledgerengine.domain.account.entity.Account;
 import com.king.ledgerengine.domain.account.enums.AccountOwnerType;
+import com.king.ledgerengine.domain.account.enums.AccountType;
 import com.king.ledgerengine.domain.user.UserRepository;
 import com.king.ledgerengine.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,7 @@ public class SystemAccountSeeder implements CommandLineRunner {
                             .firstName("System")
                             .lastName("Account")
                             .email(SYSTEM_USER_EMAIL)
-                            .password(passwordEncoder.encode(UUID.randomUUID().toString())) // random, unusable password
+                            .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                             .build();
                     return userRepository.save(user);
                 });
@@ -45,6 +46,7 @@ public class SystemAccountSeeder implements CommandLineRunner {
             Account systemAccount = Account.builder()
                     .name(SYSTEM_ACCOUNT_NAME)
                     .ownerType(AccountOwnerType.SYSTEM)
+                    .type(AccountType.ASSET)
                     .user(systemUser)
                     .build();
             accountRepository.save(systemAccount);
