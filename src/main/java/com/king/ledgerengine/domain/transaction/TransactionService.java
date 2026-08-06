@@ -119,7 +119,7 @@ public class TransactionService {
         txDto.setEntries(List.of(debitSystem, creditUser));
 
         // Note: userId here is the acting/requesting user, not necessarily the
-        // owner of the account being credited — see ownership discussion below.
+        // owner of the account being credited
         return create(txDto, idempotencyKey, userId);
     }
 

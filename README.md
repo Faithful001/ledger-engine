@@ -63,15 +63,19 @@ Storing it separately would risk drift between the "official" entry history and 
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/users` | Register a new user |
-| `GET` | `/users/{id}` | Get user by ID |
-| `POST` | `/accounts` | Create a new account |
-| `GET` | `/accounts/{id}/balance` | Get current computed balance |
-| `GET` | `/accounts/{id}/entries` | Get full entry history for an account |
-| `POST` | `/transactions` | Create a transaction with balanced entries (requires `Idempotency-Key` header) |
-| `POST` | `/transactions/{id}/reverse` | Reverse a posted transaction via offsetting entries |
+| Method | Endpoint                     | Description                                                                    |
+|--------|------------------------------|--------------------------------------------------------------------------------|
+| `POST` | `/auth/register`             | Register a new user                                                            |
+| `POST` | `/auth/login`                | Sign an existing user in                                                       |
+| `GET`  | `/users/me`                  | Get an authenticated user                                                      |
+| `POST` | `/accounts`                  | Create a new account                                                           |
+| `GET`  | `/accounts`                  | Get all accounts by a owned by the authenticated user                          |
+| `GET`  | `/accounts/{id}`             | Get account by ID                                                              |
+| `GET`  | `/accounts/{id}/balance`     | Get current computed balance                                                   |
+| `GET`  | `/accounts/{id}/entries`     | Get full entry history for an account                                          |
+| `POST` | `/transactions`              | Create a transaction with balanced entries (requires `Idempotency-Key` header) |
+| `POST` | `/transactions/deposit`      | Add funds to the authenticated user's account from the System Deposit Account  |
+| `POST` | `/transactions/{id}/reverse` | Reverse a posted transaction via offsetting entries                            |
 
 ## Correctness & Concurrency Guarantees
 
