@@ -129,6 +129,7 @@ See the Payment Processor's README for the full end-to-end event flow.
 
 Set your database connection in `src/main/resources/application.properties` (or via `.env`, loaded manually at startup):
 
+Properties: `src/main/resources/application.properties`
 ```properties
 server.port=8081
 
@@ -136,6 +137,15 @@ spring.datasource.url=jdbc:postgresql://localhost:5432/ledger_engine
 spring.datasource.username=your_username
 spring.datasource.password=your_password
 spring.jpa.hibernate.ddl-auto=update
+```
+
+ENV: `.env`
+```env
+POSTGRES_DB_URL=jdbc:postgresql://localhost:5433/ledger_db
+POSTGRES_DB=ledger_db
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
+JWT_SECRET=your_jwt_secret
 ```
 
 ### Run the app
