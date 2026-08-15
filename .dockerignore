@@ -1,0 +1,15 @@
+.git
+.gitignore
+.gitattributes
+.idea
+.mvn
+target/
+*.log
+*.tmp
+.env
+HELP.md
+TODO.md
+mvnw
+mvnw.cmd
+Dockerfile
+docker-compose.yaml

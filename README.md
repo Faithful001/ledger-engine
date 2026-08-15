@@ -148,7 +148,27 @@ POSTGRES_PASSWORD=your_password
 JWT_SECRET=your_jwt_secret
 ```
 
-### Run the app
+### Running with Docker
+
+The easiest way to run the application along with PostgreSQL is using Docker Compose:
+
+```bash
+docker compose up --build -d
+```
+
+This will build the application image via a multi-stage Dockerfile, start PostgreSQL, wait for PostgreSQL health checks to pass, and launch the service at `http://localhost:8081`.
+
+To stop the containers and keep data volumes:
+```bash
+docker compose down
+```
+
+To stop and remove data volumes:
+```bash
+docker compose down -v
+```
+
+### Run locally (without Docker)
 
 ```bash
 ./mvnw spring-boot:run
