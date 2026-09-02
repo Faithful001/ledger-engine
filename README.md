@@ -200,13 +200,7 @@ curl -X POST http://localhost:8081/transactions \
 - [x] Idempotency key enforcement
 - [x] Transaction reversal (offsetting entries)
 - [x] Integration with Payment Processor via HTTP API
-- [ ] Optimistic locking on Account
-- [ ] Audit log table
-- [ ] System-wide reconciliation endpoint
-- [ ] Multi-currency support with exchange rate snapshots
-- [ ] Scheduled/recurring transactions
-- [ ] Event publishing on transaction posting
-- [ ] API rate limiting
+- [x] Optimistic locking on Account
 
 ## Notes on Design Decisions
 
