@@ -3,7 +3,6 @@ package com.king.ledgerengine.domain.transaction;
 import com.king.ledgerengine.domain.account.AccountRepository;
 import com.king.ledgerengine.domain.account.entity.Account;
 import com.king.ledgerengine.domain.account.enums.AccountOwnerType;
-import com.king.ledgerengine.domain.account.enums.AccountType;
 import com.king.ledgerengine.domain.entry.EntryRepository;
 import com.king.ledgerengine.domain.entry.entity.Entry;
 import com.king.ledgerengine.domain.entry.enums.EntryType;
@@ -120,7 +119,7 @@ public class TransactionService {
 
         // Note: userId here is the acting/requesting user, not necessarily the
         // owner of the account being credited
-        return create(txDto, idempotencyKey, userId);
+        return createInternal(txDto, idempotencyKey, userId);
     }
 
     @Transactional
@@ -216,7 +215,7 @@ public class TransactionService {
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "Account not found: " + accountId));
 
-            if (account.getOwnerType() != AccountOwnerType.SYSTEM) {
+            if (account.getOwnerType() == AccountOwnerType.SYSTEM) {
                 continue;
             }
 
