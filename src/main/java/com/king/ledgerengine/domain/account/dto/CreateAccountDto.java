@@ -4,11 +4,13 @@ import com.king.ledgerengine.domain.account.enums.AccountType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 @Setter
 @Getter
+@Builder
 public class CreateAccountDto {
     @Schema(description = "Account name", example = "Customer Cash Account")
     @NotBlank

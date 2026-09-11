@@ -15,7 +15,7 @@ WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Copy built jar from builder stage
-COPY --from=builder /app/target/ledger-engine-*.jar app.jar
+COPY --from=builder /app/target/ledger-engine-0.0.1-SNAPSHOT.jar app.jar
 
 # Switch to non-root user
 USER appuser
