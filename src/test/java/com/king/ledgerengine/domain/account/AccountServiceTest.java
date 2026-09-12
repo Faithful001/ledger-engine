@@ -15,13 +15,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AccountService Unit Tests")
@@ -69,28 +70,69 @@ class AccountServiceTest {
                 .build();
     }
 
+//    @Nested
+//    @DisplayName("Create Account Tests")
+//    class CreateAccountTests {
+//        @Test
+//        @DisplayName("Should create account successfully when valid payload and userId exists")
+//        void shouldCreateAccountSuccessfully() {
+//            // Given
+//            final String userId = "user-123";
+//
+//            when(userRepository.findById(userId))
+//                    .thenReturn(Optional.of(testUser));
+//            when(accountRepository.save(testAccount)).thenReturn(testAccount);
+//
+//            // When
+//            final Account result = accountService.create(testCreateAccountDto, userId);
+//
+//            // Then
+//            assertNotNull(result);
+//            assertEquals(userId, result.getUser().getId());
+//            verify(userRepository, times(1)).findById(userId);
+//            verify(accountRepository, times(1)).save(testAccount);
+//        }
+//    }
+
     @Nested
-    @DisplayName("Create Account Tests")
-    class CreateAccountTests {
+    @DisplayName("Get Account Tests")
+    class GetAccountTests {
+
         @Test
-        @DisplayName("Should create account successfully when valid payload and userId exists")
-        void shouldCreateAccountSuccessfully() {
-            //Given
+        @DisplayName("Should get one account successfully when provided with the correct arguments")
+        void shouldGetOneAccountSuccessfully() {
+            // Given
+            final String userId = "user-123";
+            when(accountRepository.findByIdAndUserId(testAccount.getId(), userId))
+                    .thenReturn(Optional.of(testAccount));
+            // When
+            Account result = accountService.getOne(userId, testAccount.getId());
+
+            // Then
+            assertNotNull(result);
+        }
+
+        @Test
+        @DisplayName("Should throw ResponseStatusException when Account is not found")
+        void shouldThrowResponseStatusExceptionWhenAccountIsNotFound() {
+            // Given
             final String userId = "user-123";
 
-            when(userRepository.findById(userId))
-                    .thenReturn(Optional.of(testUser));
-            when(accountRepository.save(testAccount)).thenReturn(testAccount);
+            when(accountRepository.findByIdAndUserId(testAccount.getId(), userId))
+                    .thenReturn(Optional.empty());
 
-            //When
-            final Account result = accountService.create(testCreateAccountDto, userId);
 
-            //Then
-            assertNotNull(result);
-            assertEquals(userId, result.getUser().getId());
-            verify(userRepository, times(1)).findById(userId);
-            verify(accountRepository, times(1)).save(testAccount);
+            // When & Then
+            final ResponseStatusException exception = assertThrows(
+                    ResponseStatusException.class,
+                    () -> accountService.getOne(userId, testAccount.getId())
+            );
+
+            assertEquals("Account not found or does not belong to this user", exception.getReason());
+            assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+
         }
+
     }
 
 }

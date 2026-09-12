@@ -6,13 +6,12 @@ import com.king.ledgerengine.domain.account.enums.AccountOwnerType;
 import com.king.ledgerengine.domain.entry.EntryRepository;
 import com.king.ledgerengine.domain.entry.entity.Entry;
 import com.king.ledgerengine.domain.user.UserRepository;
-import com.king.ledgerengine.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -25,7 +24,7 @@ public class AccountService {
     private final UserRepository userRepository;
 
     // POST
-    public Account create(@NonNull CreateAccountDto payload, String userId){
+    public Account create(CreateAccountDto payload, String userId) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
@@ -64,7 +63,7 @@ public class AccountService {
     }
 
     // helper
-    private void assertOwnership(String userId, String accountId){
+    private void assertOwnership(String userId, String accountId) {
         accountRepository.findByIdAndUserId(accountId, userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Account not found or does not belong to this user"));
